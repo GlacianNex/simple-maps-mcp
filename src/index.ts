@@ -2,6 +2,8 @@
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { mkdir, writeFile } from "node:fs/promises";
+import { dirname, resolve } from "node:path";
 import sharp from "sharp";
 import { z } from "zod";
 
@@ -66,7 +68,7 @@ async function buildStaticMap(
   width: number,
   height: number,
   marker: boolean
-): Promise<string> {
+): Promise<Buffer> {
   const { xTile, yTile } = latLngToTile(lat, lng, zoom);
 
   // How many tiles we need in each direction from center
@@ -145,8 +147,7 @@ async function buildStaticMap(
     ]);
   }
 
-  const pngBuffer = await cropped.png().toBuffer();
-  return pngBuffer.toString("base64");
+  return cropped.png().toBuffer();
 }
 
 const server = new McpServer({
@@ -163,18 +164,27 @@ server.tool(
     width: z.number().min(1).max(1280).default(600).describe("Image width in pixels"),
     height: z.number().min(1).max(1280).default(400).describe("Image height in pixels"),
     marker: z.boolean().default(true).describe("Show a red pin at the location"),
+    save_path: z.string().optional().describe("Absolute file path to save the PNG image to disk (e.g. /Users/me/maps/output.png)"),
   },
-  async ({ address, zoom, width, height, marker }) => {
+  async ({ address, zoom, width, height, marker, save_path }) => {
     try {
       const { lat, lng, formattedAddress } = await geocodeAddress(address);
-      const base64Png = await buildStaticMap(lat, lng, zoom, width, height, marker);
+      const pngBuffer = await buildStaticMap(lat, lng, zoom, width, height, marker);
+      const base64Png = pngBuffer.toString("base64");
 
-      return {
-        content: [
-          { type: "image" as const, data: base64Png, mimeType: "image/png" as const },
-          { type: "text" as const, text: `Map of '${formattedAddress}' at ${lat}, ${lng}` },
-        ],
-      };
+      const content: Array<{ type: "image"; data: string; mimeType: "image/png" } | { type: "text"; text: string }> = [
+        { type: "image", data: base64Png, mimeType: "image/png" },
+        { type: "text", text: `Map of '${formattedAddress}' at ${lat}, ${lng}` },
+      ];
+
+      if (save_path) {
+        const fullPath = resolve(save_path);
+        await mkdir(dirname(fullPath), { recursive: true });
+        await writeFile(fullPath, pngBuffer);
+        content.push({ type: "text", text: `Image saved to ${fullPath}` });
+      }
+
+      return { content };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       return {

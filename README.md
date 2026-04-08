@@ -8,7 +8,7 @@ An MCP (Model Context Protocol) server that generates static map images for any 
 
 ## What It Does
 
-Give it an address, get back a map image. That's it.
+Give it an address, get back a map image. Optionally save it to disk. That's it.
 
 The server geocodes the address using [Nominatim](https://nominatim.openstreetmap.org/) (OpenStreetMap's geocoding service), fetches the relevant map tiles from OpenStreetMap, stitches them together using [sharp](https://sharp.pixelplumbing.com/), and returns a PNG image with an optional location marker.
 
@@ -16,6 +16,7 @@ The server geocodes the address using [Nominatim](https://nominatim.openstreetma
 
 - **No API key required** -- uses OpenStreetMap and Nominatim (both free and open)
 - **Returns actual images** -- base64-encoded PNG delivered as an MCP image content block
+- **Save to disk** -- optionally write the generated map image to a PNG file
 - **Configurable** -- zoom level, image dimensions, and marker visibility
 - **Lightweight** -- single-file server with minimal dependencies
 - **Works with any MCP client** -- Claude Desktop, Claude Code, or any MCP-compatible application
@@ -72,6 +73,8 @@ Or add manually to `~/.claude.json`:
 }
 ```
 
+> **Note:** If you use nvm, replace `node` with the full path to your Node.js binary (e.g. `/Users/you/.nvm/versions/node/v22.0.0/bin/node`).
+
 After configuring, restart your MCP client.
 
 ## Tool Reference
@@ -82,31 +85,33 @@ Generate a static map image for a given address using OpenStreetMap.
 
 #### Parameters
 
-| Parameter | Type    | Required | Default    | Description                        |
-|-----------|---------|----------|------------|------------------------------------|
-| `address` | string  | Yes      | --         | Street address or place name       |
-| `zoom`    | number  | No       | `15`       | Zoom level (`0`-`19`)              |
-| `width`   | number  | No       | `600`      | Image width in pixels (max `1280`) |
-| `height`  | number  | No       | `400`      | Image height in pixels (max `1280`)|
-| `marker`  | boolean | No       | `true`     | Show a red pin at the location     |
+| Parameter   | Type    | Required | Default | Description                                      |
+|-------------|---------|----------|---------|--------------------------------------------------|
+| `address`   | string  | Yes      | --      | Street address or place name                      |
+| `zoom`      | number  | No       | `15`    | Zoom level (`0`-`19`)                             |
+| `width`     | number  | No       | `600`   | Image width in pixels (max `1280`)                |
+| `height`    | number  | No       | `400`   | Image height in pixels (max `1280`)               |
+| `marker`    | boolean | No       | `true`  | Show a red pin at the location                    |
+| `save_path` | string  | No       | --      | Absolute file path to save the PNG to disk        |
 
 #### Zoom Level Guide
 
-| Zoom | View              |
-|------|-------------------|
-| 0-3  | Continent / World |
-| 4-6  | Country           |
-| 7-10 | City / Region     |
-| 11-14| Neighborhood      |
-| 15-17| Streets           |
-| 18-19| Buildings         |
+| Zoom  | View              |
+|-------|-------------------|
+| 0-3   | Continent / World |
+| 4-6   | Country           |
+| 7-10  | City / Region     |
+| 11-14 | Neighborhood      |
+| 15-17 | Streets           |
+| 18-19 | Buildings         |
 
 #### Response
 
-Returns two content blocks:
+Returns content blocks:
 
 1. **Image** -- PNG map image (base64-encoded)
 2. **Text** -- Resolved address and coordinates, e.g. `Map of '1600 Amphitheatre Parkway, Mountain View, CA' at 37.422, -122.084`
+3. **Text** *(only when `save_path` is provided)* -- Confirmation with the full path where the image was saved
 
 #### Example Usage
 
@@ -114,9 +119,11 @@ Once configured, just ask your AI assistant:
 
 > "Show me a map of the Eiffel Tower"
 
-> "Generate a satellite-level map of 1600 Amphitheatre Parkway, Mountain View, CA at zoom level 17"
+> "Generate a zoomed-in map of 1600 Amphitheatre Parkway, Mountain View, CA at zoom level 17"
 
 > "Map of Tokyo Tower with a 1280x1280 image"
+
+> "Show me a map of Central Park and save it to ~/Desktop/central-park.png"
 
 ## How It Works
 
@@ -124,7 +131,8 @@ Once configured, just ask your AI assistant:
 2. **Tile Fetching** -- The required OpenStreetMap tiles are calculated and fetched in parallel based on the coordinates and zoom level
 3. **Image Stitching** -- Tiles are composited onto a canvas using `sharp`, then cropped to the exact requested dimensions, centered on the target location
 4. **Marker Rendering** -- If enabled, a red pin with a white border is drawn at the target coordinates via SVG overlay
-5. **Response** -- The final PNG is base64-encoded and returned as an MCP image content block
+5. **Save to Disk** -- If `save_path` is provided, the PNG is written to the specified file (directories are created automatically)
+6. **Response** -- The final PNG is base64-encoded and returned as an MCP image content block
 
 ## Rate Limiting
 
