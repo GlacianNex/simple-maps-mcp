@@ -92,7 +92,8 @@ Generate a static map image for a given address using OpenStreetMap.
 | `width`     | number  | No       | `600`   | Image width in pixels (max `1280`)                |
 | `height`    | number  | No       | `400`   | Image height in pixels (max `1280`)               |
 | `marker`    | boolean | No       | `true`  | Show a red pin at the location                    |
-| `save_path` | string  | No       | --      | Absolute file path to save the PNG to disk        |
+| `save_path`      | string  | No       | --      | Absolute file path to save the PNG to disk                        |
+| `return_base64`  | boolean | No       | `false` | Return base64 PNG as text (for piping into other tools/skills)    |
 
 #### Zoom Level Guide
 
@@ -112,6 +113,7 @@ Returns content blocks:
 1. **Image** -- PNG map image (base64-encoded)
 2. **Text** -- Resolved address and coordinates, e.g. `Map of '1600 Amphitheatre Parkway, Mountain View, CA' at 37.422, -122.084`
 3. **Text** *(only when `save_path` is provided)* -- Confirmation with the full path where the image was saved
+4. **Text** *(only when `return_base64` is true)* -- The raw base64 PNG string prefixed with `BASE64_PNG:` for easy parsing by downstream tools
 
 #### Example Usage
 
@@ -132,7 +134,8 @@ Once configured, just ask your AI assistant:
 3. **Image Stitching** -- Tiles are composited onto a canvas using `sharp`, then cropped to the exact requested dimensions, centered on the target location
 4. **Marker Rendering** -- If enabled, a red pin with a white border is drawn at the target coordinates via SVG overlay
 5. **Save to Disk** -- If `save_path` is provided, the PNG is written to the specified file (directories are created automatically)
-6. **Response** -- The final PNG is base64-encoded and returned as an MCP image content block
+6. **Base64 Text Mode** -- If `return_base64` is true, the base64 string is included as a text block so other tools/skills can decode and embed it without filesystem access
+7. **Response** -- The final PNG is base64-encoded and returned as an MCP image content block
 
 ## Rate Limiting
 

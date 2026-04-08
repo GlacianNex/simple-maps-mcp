@@ -165,8 +165,9 @@ server.tool(
     height: z.number().min(1).max(1280).default(400).describe("Image height in pixels"),
     marker: z.boolean().default(true).describe("Show a red pin at the location"),
     save_path: z.string().optional().describe("Absolute file path to save the PNG image to disk (e.g. /Users/me/maps/output.png)"),
+    return_base64: z.boolean().default(false).describe("When true, return the base64 PNG string in a text block (useful for piping into other tools that need raw image bytes)"),
   },
-  async ({ address, zoom, width, height, marker, save_path }) => {
+  async ({ address, zoom, width, height, marker, save_path, return_base64 }) => {
     try {
       const { lat, lng, formattedAddress } = await geocodeAddress(address);
       const pngBuffer = await buildStaticMap(lat, lng, zoom, width, height, marker);
@@ -182,6 +183,10 @@ server.tool(
         await mkdir(dirname(fullPath), { recursive: true });
         await writeFile(fullPath, pngBuffer);
         content.push({ type: "text", text: `Image saved to ${fullPath}` });
+      }
+
+      if (return_base64) {
+        content.push({ type: "text", text: `BASE64_PNG:${base64Png}` });
       }
 
       return { content };
